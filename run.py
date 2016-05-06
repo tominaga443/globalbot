@@ -3,6 +3,7 @@ import os
 import requests
 import falcon
 from logging import DEBUG, StreamHandler, getLogger
+from linebot.line import Line
 
 # logger
 logger = getLogger(__name__)
@@ -11,23 +12,11 @@ handler.setLevel(DEBUG)
 logger.setLevel(DEBUG)
 logger.addHandler(handler)
 
-ENDPOINT_URI = 'https://trialbot-api.line.me/v1/events'
-PROXIES = {
-    'http': os.environ.get('FIXIE_URL', ''),
-    'https': os.environ.get('FIXIE_URL', '')
-}
-
 
 class Application(object):
-    # line
-    header = {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Line-ChannelID': os.environ['LINE_CHANNEL_ID'],
-        'X-Line-ChannelSecret': os.environ['LINE_CHANNEL_SECRET'],
-        'X-Line-Trusted-User-With-ACL': os.environ['LINE_CHANNEL_MID'],
-    }
-
     def on_post(self, req, resp):
+        keys = self.__get_line_keys()
+        line = Line(*keys)
 
         body = req.stream.read()
         if not body:
@@ -37,28 +26,26 @@ class Application(object):
         receive_params = json.loads(body.decode('utf-8'))
         logger.debug('receive_params: {}'.format(receive_params))
 
-        for msg in receive_params['result']:
+        reqs = line.receive(receive_params)
+        if len(reqs) == 0:
+                raise Exception("No message is received")
 
-            logger.debug('msg: {}'.format(msg))
+        for r in reqs:
+            request_msg = r.content
+            response = request_msg.reply()
+            reply = request_msg.text
+            response.set_text(reply)
+            line.post(response)
 
-            content = {
-                'to': [msg['content']['from']],
-                'toChannel': 1383378250,  # Fixed value
-                'eventType': '138311608800106203',  # Fixed value
-                'content': {
-                    'contentType': 1,
-                    'toType': 1,
-                    'text': [msg['content']['text']]
-                },
-            }
-            send_content = json.dumps(content)
-            logger.debug('send_content: {}'.format(send_content))
+    def __get_line_keys(self):
+        channel_id = os.getenv("LINE_CHANNEL_ID")
+        channel_secret = os.getenv("LINE_CHANNEL_SECRET")
+        channel_mid = os.getenv("LINE_CHANNEL_MID")
+        proxy = os.getenv("FIXIE_URL")  # for heroku
 
-            res = requests.post(ENDPOINT_URI, data=send_content,
-                                headers=self.header, proxies=PROXIES)
-            logger.debug('res: {} {}'.format(res.status_code, res.reason))
+        keys = (channel_id, channel_secret, channel_mid, proxy)
+        return keys
 
-            resp.body = json.dumps('OK')
 
 api = falcon.API()
 api.add_route('/callback', Application())
