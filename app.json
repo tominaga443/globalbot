@@ -19,6 +19,14 @@
         "LINE_CHANNEL_MID": {
             "description": "Channel MID",
             "required": true
+        },
+        "MS_CLIENT_ID": {
+            "description": "Client ID",
+            "required": true
+        },
+        "MS_CLIENT_SECRET": {
+            "description": "Client secret",
+            "required": true
         }
     },
     "addons": [
