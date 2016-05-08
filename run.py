@@ -2,6 +2,8 @@ import json
 import os
 import requests
 import falcon
+import pyoxford
+import urllib.request
 from logging import DEBUG, StreamHandler, getLogger
 from mstranslator.mstranslator import MSTranslator
 from linebot.line import Line
@@ -35,8 +37,32 @@ class Application(object):
                 raise Exception("No message is received")
 
         for req in reqests:
+            text = ""
             request_msg = req.content
-            text = request_msg.text
+
+            if request_msg.content_type == 4:
+                url = request_msg.originalContentUrl
+                audio = urllib.request.urlopen(url)
+                logger.debug("audio url: ".format(url))
+
+                path = "tmp/" + os.path.basename(url)
+                logger.debug("audio file path: ".format(path))
+
+                local = open(path, 'wb')
+                local.write(audio.read())
+                audio.close()
+                local.close()
+
+                speech_api = pyoxford.speech(ms_client_id, ms_client_secret)
+                reply = speech_api.speech_to_text(path)
+                response = request_msg.reply()
+                response.set_text(reply)
+                line.post(response)
+
+                os.remove(path)
+                text = reply
+            else:
+                text = request_msg.text
 
             response = request_msg.reply()
             src_lang = translator.detect(text)
