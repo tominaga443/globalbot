@@ -31,6 +31,23 @@ class Line():
 
         return LineRequest.parse(_b)
 
+    def get_content(self, message_id):
+        url = self.__make_url("/v1/bot/message/" + message_id + "/content")
+        headers = {
+            "X-Line-ChannelID": self.channel_id,
+            "X-Line-ChannelSecret": self.channel_secret,
+            "X-Line-Trusted-User-With-ACL": self.mid
+        }
+
+        resp = requests.get(url, headers=headers, proxies=self.proxies)
+        if not resp.ok:
+            raise Exception("Url({0}), Status({1} {2}): header={3}, proxy={4}, body={5}".format(
+                url, resp.status_code, resp.reason, headers, self.proxies, r_dict
+            ))
+
+        return resp.content
+
+
     def post(self, message: LineResponse):
         url = self.__make_url("/v1/events")
         headers = {

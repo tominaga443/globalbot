@@ -27,6 +27,14 @@
         "MS_CLIENT_SECRET": {
             "description": "Client secret",
             "required": true
+        },
+        "OXFORD_PRIMARY_KEY": {
+            "description": "Primary Key",
+            "required": true
+        },
+        "OXFORD_SECONDARY_KEY": {
+            "description": "Secondary key",
+            "required": true
         }
     },
     "addons": [

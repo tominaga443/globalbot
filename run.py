@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import json
 import os
 import requests
@@ -7,6 +9,7 @@ import urllib.request
 from logging import DEBUG, StreamHandler, getLogger
 from mstranslator.mstranslator import MSTranslator
 from linebot.line import Line
+from linebot.models.line_types import ContentType
 
 # logger
 logger = getLogger(__name__)
@@ -22,6 +25,8 @@ class Application(object):
         line = Line(*line_keys)
         ms_client_id = os.getenv("MS_CLIENT_ID")
         ms_client_secret = os.getenv("MS_CLIENT_SECRET")
+        oxford_primary_key = os.getenv("OXFORD_PRIMARY_KEY")
+        oxford_secondary_key = os.getenv("OXFORD_SECONDARY_KEY")
         translator = MSTranslator(ms_client_id, ms_client_secret)
 
         body = req.stream.read()
@@ -39,27 +44,19 @@ class Application(object):
         for req in reqests:
             text = ""
             request_msg = req.content
+            print(vars(req))
+            print(vars(request_msg))
+            print(oxford_primary_key)
+            print(oxford_secondary_key)
 
-            if request_msg.content_type == 4:
-                url = request_msg.originalContentUrl
-                audio = urllib.request.urlopen(url)
-                logger.debug("audio url: ".format(url))
-
-                path = "tmp/" + os.path.basename(url)
-                logger.debug("audio file path: ".format(path))
-
-                local = open(path, 'wb')
-                local.write(audio.read())
-                audio.close()
-                local.close()
-
-                speech_api = pyoxford.speech(ms_client_id, ms_client_secret)
-                reply = speech_api.speech_to_text(path)
+            if request_msg.content_type is ContentType.audio:
+                content = line.get_content(request_msg.message_id)
+                speech_api = pyoxford.speech(oxford_primary_key, oxford_secondary_key)
+                reply = speech_api.speech_to_text(binary_or_path=content, lang="ja-JP")
                 response = request_msg.reply()
                 response.set_text(reply)
                 line.post(response)
 
-                os.remove(path)
                 text = reply
             else:
                 text = request_msg.text

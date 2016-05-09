@@ -59,4 +59,4 @@ class MSLanguageCode(object):
         if code in cls.NAMES:
             return cls.NAMES[code]
         else:
-            return "Unsupported Language"
+            return "サポート対象外"
