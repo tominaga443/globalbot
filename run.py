@@ -94,23 +94,20 @@ class Application(object):
         profile = self.__decode(data)
         logger.debug("profile: {}".format(profile))
         profile = UserProfile(**profile)
-        print("name :" + profile.name)
-        print("to_user :" + profile.to_user)
 
         target_profile = self.__get_user_profile(id=profile.to_user)
         target_lang = Language(target_profile.lang)
-        print("t_lang: " + target_lang.code)
-        print("t_prof_lang: " + target_profile.lang)
-        print("t_prof_name: " + target_profile.name)
 
         if request_msg.content_type is ContentType.text:
             text = request_msg.text
 
-            src_lang = translator.detect(text)
-            reply_msg = src_lang.name + "から" + target_lang.name + "に翻訳します"
-            self.__post_reply(line, request_msg, reply_msg)
+            # Detect
+            #src_lang = translator.detect(text)
+            #reply_msg = src_lang.name + "から" + target_lang.name + "に翻訳します"
+            #self.__post_reply(line, request_msg, reply_msg)
 
             reply_msg = translator.translate(text, target_lang.code)
+            reply_msg = "@" + profile.name + "¥n" + reply_msg
             self.__post_reply(line, request_msg, reply_msg, profile.to_user)
 
     def __set_config(self, line, request_msg):
