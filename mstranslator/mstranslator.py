@@ -1,5 +1,5 @@
 from microsofttranslator import Translator
-from mstranslator.language_code import MSLanguageCode
+from mstranslator.language import Language
 
 
 class MSTranslator():
@@ -10,8 +10,9 @@ class MSTranslator():
         self.translator = Translator(client_id, client_secret)
 
     def detect(self, text):
-        src_lang = self.translator.detect_language(text)
-        return MSLanguageCode.name(src_lang)
+        code = self.translator.detect_language(text)
+        lang = Language(code)
+        return lang
 
     def translate(self, text, target_lang="ja"):
         translated_text = self.translator.translate(text, target_lang)

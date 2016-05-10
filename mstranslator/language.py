@@ -1,4 +1,4 @@
-class MSLanguageCode(object):
+class Language(object):
     NAMES = {
         "ar": "Arabic",
         "bs-Latn": "Bosnian (Latin)",
@@ -54,9 +54,9 @@ class MSLanguageCode(object):
         "yua": "Yucatec Maya"
     }
 
-    @classmethod
-    def name(cls, code):
-        if code in cls.NAMES:
-            return cls.NAMES[code]
+    def __init__(self, code):
+        self.code = code
+        if self.code in self.NAMES:
+            self.name = self.NAMES[code]
         else:
-            return "サポート対象外"
+            self.name = "Unsupported"

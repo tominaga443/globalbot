@@ -8,7 +8,9 @@ import pyoxford
 import urllib.request
 from urllib.parse import urlparse
 from logging import DEBUG, StreamHandler, getLogger
+from microsofttranslator import Translator
 from mstranslator.mstranslator import MSTranslator
+from mstranslator.language import Language
 from linebot.line import Line
 from linebot.models.line_types import EventType, ContentType
 import redis
@@ -56,9 +58,20 @@ class Application(object):
         user_id = request_msg.from_mid
 
         profile = line.get_user_profile(user_id)
-        r.set(user_id, profile)
-        reply_msg = "Hello, " + profile.name + "!"
+        reply_msg = "こんにちは、" + profile.name + "さん!"
         self.__post_reply(line, request_msg, reply_msg)
+
+        translator = MSTranslator(ms_client_id, ms_client_secret)
+        lang = translator.detect(profile.name)
+
+
+        reply_msg = "あなたの言語を" + lang.name + "に設定しました"
+        self.__post_reply(line, request_msg, reply_msg)
+
+        reply_msg = "言語を変更するには「@reset」と発言してください。その次に発言した言語で再設定されます。"
+        self.__post_reply(line, request_msg, reply_msg)
+
+        r.set(user_id, profile)
 
     def __reply_message(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
@@ -66,8 +79,8 @@ class Application(object):
         if request_msg.content_type is ContentType.text:
             text = request_msg.text
 
-            src_lang = translator.detect(text)
-            reply_msg = "言語は" + src_lang + "です"
+            lang = translator.detect(text)
+            reply_msg = "言語は" + lang.name + "です"
             self.__post_reply(line, request_msg, reply_msg)
 
             reply_msg = translator.translate(text)
