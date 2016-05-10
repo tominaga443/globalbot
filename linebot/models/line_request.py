@@ -1,5 +1,6 @@
 from linebot.models.line_types import EventType
 from linebot.models.message import Message
+from linebot.models.operation import Operation
 
 
 class LineRequest():
@@ -32,8 +33,11 @@ class LineRequest():
                     r["toChannel"],
                     EventType(r["eventType"]),
                     r["id"],
-                    Message.parse(r["content"])
                 )
+                if req.event_type is EventType.message:
+                    req.content = Message.parse(r["content"])
+                elif req.event_type is EventType.operation:
+                    req.content = Operation.parse(r["content"])
                 requests.append(req)
 
         return requests

@@ -38,6 +38,7 @@
         }
     },
     "addons": [
-        "fixie:tricycle"
+        "fixie:tricycle",
+        "heroku-redis:hobby-dev"
     ]
 }

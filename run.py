@@ -6,10 +6,17 @@ import requests
 import falcon
 import pyoxford
 import urllib.request
+from urllib.parse import urlparse
 from logging import DEBUG, StreamHandler, getLogger
 from mstranslator.mstranslator import MSTranslator
 from linebot.line import Line
-from linebot.models.line_types import ContentType
+from linebot.models.line_types import EventType, ContentType
+import redis
+
+ms_client_id = os.getenv("MS_CLIENT_ID")
+ms_client_secret = os.getenv("MS_CLIENT_SECRET")
+oxford_primary_key = os.getenv("OXFORD_PRIMARY_KEY")
+oxford_secondary_key = os.getenv("OXFORD_SECONDARY_KEY")
 
 # logger
 logger = getLogger(__name__)
@@ -23,11 +30,6 @@ class Application(object):
     def on_post(self, req, resp):
         line_keys = self.__get_line_keys()
         line = Line(*line_keys)
-        ms_client_id = os.getenv("MS_CLIENT_ID")
-        ms_client_secret = os.getenv("MS_CLIENT_SECRET")
-        oxford_primary_key = os.getenv("OXFORD_PRIMARY_KEY")
-        oxford_secondary_key = os.getenv("OXFORD_SECONDARY_KEY")
-        translator = MSTranslator(ms_client_id, ms_client_secret)
 
         body = req.stream.read()
         if not body:
@@ -42,36 +44,33 @@ class Application(object):
                 raise Exception("No message is received")
 
         for req in reqests:
-            text = ""
-            request_msg = req.content
-            print(vars(req))
-            print(vars(request_msg))
-            print(oxford_primary_key)
-            print(oxford_secondary_key)
+            if req.event_type is EventType.operation:
+                request_msg = req.content
+                reply_msg = "Hello!"
+                self.__post_reply(line, request_msg, reply_msg)
+            elif req.event_type is EventType.message:
+                request_msg = req.content
+                self.__reply_message(line, request_msg)
 
-            if request_msg.content_type is ContentType.audio:
-                content = line.get_content(request_msg.message_id)
-                speech_api = pyoxford.speech(oxford_primary_key, oxford_secondary_key)
-                reply = speech_api.speech_to_text(binary_or_path=content, lang="ja-JP")
-                response = request_msg.reply()
-                response.set_text(reply)
-                line.post(response)
 
-                text = reply
-            else:
-                text = request_msg.text
+    def __reply_message(self, line, request_msg):
+        translator = MSTranslator(ms_client_id, ms_client_secret)
+        r = redis.from_url(os.environ.get("REDIS_URL"))
 
-            response = request_msg.reply()
+        if request_msg.content_type is ContentType.text:
+            text = request_msg.text
+
             src_lang = translator.detect(text)
-            reply = "言語は" + src_lang + "です"
-            response.set_text(reply)
-            line.post(response)
+            reply_msg = "言語は" + src_lang + "です"
+            self.__post_reply(line, request_msg, reply_msg)
 
-            response = request_msg.reply()
-            reply = translator.translate(text)
-            response.set_text(reply)
-            line.post(response)
+            reply_msg = translator.translate(text)
+            self.__post_reply(line, request_msg, reply_msg)
 
+    def __post_reply(self, line, request_msg, reply_msg):
+        response = request_msg.reply()
+        response.set_text(reply_msg)
+        line.post(response)
 
     def __get_line_keys(self):
         channel_id = os.getenv("LINE_CHANNEL_ID")
