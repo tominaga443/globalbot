@@ -66,7 +66,7 @@ class Application(object):
 
         user_id = request_msg.from_mid
         contact = line.get_user_profile(user_id)
-        profile = UserProfile(contact.name, contact.mid)
+        profile = UserProfile(contact.name, contact.mid, image_url=contact.picture_url)
         reply_msg = "こんにちは、" + profile.name + "さん！"
         self.__post_reply(line, request_msg, reply_msg)
 
@@ -107,7 +107,6 @@ class Application(object):
             #self.__post_reply(line, request_msg, reply_msg)
 
             reply_msg = translator.translate(text, target_lang.code)
-            reply_msg = "@" + profile.name + "¥n" + reply_msg
             self.__post_reply(line, request_msg, reply_msg, profile.to_user)
 
     def __set_config(self, line, request_msg):
@@ -120,6 +119,8 @@ class Application(object):
         print("dist_user: " + dist_profile.name)
         self.__set_dist_user(user_id, dist_profile.mid)
 
+        reply_msg = dist_profile.name + "さんとつながりました"
+        self.__post_reply(line, request_msg, reply_msg, user_id)
 
     def __post_reply(self, line, request_msg, reply_msg, target=""):
         response = request_msg.reply()
