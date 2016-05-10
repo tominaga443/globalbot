@@ -60,27 +60,35 @@ class Application(object):
 
         user_id = request_msg.from_mid
         contact = line.get_user_profile(user_id)
-        profile = UserProfile(contact)
+        profile = UserProfile(contact.name, contact.mid)
         reply_msg = "こんにちは、" + profile.name + "さん！"
         self.__post_reply(line, request_msg, reply_msg)
 
         lang = translator.detect(profile.name)
-        profile.lang = lang
+        profile.lang = lang.code
         reply_msg = "あなたの言語を" + lang.name + "に設定しました"
         self.__post_reply(line, request_msg, reply_msg)
 
         reply_msg = "言語を変更するには「@reset」と発言してください。その次に発言した言語で再設定されます。"
         self.__post_reply(line, request_msg, reply_msg)
 
-        r.set(profile.mid, profile)
+        profile.to_user = profile.mid  #TODO:selectable
+        dic = profile.__dict__
+        logger.debug("profile: {}".format(dic))
+        print(dic.__class__.__name__)
+        r.hmset(profile.mid, dic)
 
     def __reply_message(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
-        r = redis.from_url(os.environ.get("REDIS_URL"))
+        r = redis.from_url(url=os.environ.get("REDIS_URL"))
+
 
         user_id = request_msg.from_mid
-        profile = r.get(user_id)
-        target_lang = profile.lang
+        data = r.hgetall(user_id)
+        profile = self.__dict_to_str(data)
+        logger.debug("profile: {}".format(profile))
+        profile = UserProfile(**profile)
+        target_lang = Language(profile.lang)
 
         if request_msg.content_type is ContentType.text:
             text = request_msg.text
@@ -105,6 +113,14 @@ class Application(object):
 
         keys = (channel_id, channel_secret, channel_mid, proxy)
         return keys
+
+    def __dict_to_str(self, data):
+        dic = {}
+        for k, v in data.items():
+            key = k.decode("utf-8")
+            value = v.decode("utf-8")
+            dic[key] = value
+        return dic
 
 
 api = falcon.API()
