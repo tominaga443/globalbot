@@ -46,16 +46,22 @@ class Application(object):
         for req in reqests:
             if req.event_type is EventType.operation:
                 request_msg = req.content
-                reply_msg = "Hello!"
-                self.__post_reply(line, request_msg, reply_msg)
+                self.__resist_user(line, request_msg)
             elif req.event_type is EventType.message:
                 request_msg = req.content
                 self.__reply_message(line, request_msg)
 
+    def __resist_user(self, line, request_msg):
+        r = redis.from_url(os.environ.get("REDIS_URL"))
+        user_id = request_msg.from_mid
+
+        profile = line.get_user_profile(user_id)
+        r.set(user_id, profile)
+        reply_msg = "Hello, " + profile.name + "!"
+        self.__post_reply(line, request_msg, reply_msg)
 
     def __reply_message(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
-        r = redis.from_url(os.environ.get("REDIS_URL"))
 
         if request_msg.content_type is ContentType.text:
             text = request_msg.text

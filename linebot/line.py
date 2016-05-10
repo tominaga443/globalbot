@@ -2,7 +2,7 @@ import json
 import requests
 from linebot.models.line_request import LineRequest
 from linebot.models.line_response import LineResponse
-
+from linebot.models.line_contact import LineContact
 
 class Line():
     HOST = "trialbot-api.line.me"
@@ -47,6 +47,22 @@ class Line():
 
         return resp.content
 
+    def get_user_profile(self, user_mid):
+        url = self.__make_url("/v1/profiles?mids=" + user_mid)
+        headers = {
+            "X-Line-ChannelID": self.channel_id,
+            "X-Line-ChannelSecret": self.channel_secret,
+            "X-Line-Trusted-User-With-ACL": self.mid
+        }
+
+        body = requests.get(url, headers=headers, proxies=self.proxies)
+
+        receive_params = json.loads(body.text)
+        print('receive_params: {}'.format(receive_params))
+
+        contacts = LineContact.parse(receive_params)
+
+        return contacts[0]
 
     def post(self, message: LineResponse):
         url = self.__make_url("/v1/events")
