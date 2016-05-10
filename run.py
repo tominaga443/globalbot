@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import requests
 import falcon
 import pyoxford
@@ -52,7 +53,12 @@ class Application(object):
                 self.__resist_user(line, request_msg)
             elif req.event_type is EventType.message:
                 request_msg = req.content
-                self.__reply_message(line, request_msg)
+                text = request_msg.text
+                result = re.match("@", text)
+                if result is None:
+                    self.__translate_message(line, request_msg)
+                else:
+                    self.__set_config(line, request_msg)
 
     def __resist_user(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
@@ -78,17 +84,24 @@ class Application(object):
         print(dic.__class__.__name__)
         r.hmset(profile.mid, dic)
 
-    def __reply_message(self, line, request_msg):
+    def __translate_message(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
         r = redis.from_url(url=os.environ.get("REDIS_URL"))
 
 
         user_id = request_msg.from_mid
         data = r.hgetall(user_id)
-        profile = self.__dict_to_str(data)
+        profile = self.__decode(data)
         logger.debug("profile: {}".format(profile))
         profile = UserProfile(**profile)
-        target_lang = Language(profile.lang)
+        print("name :" + profile.name)
+        print("to_user :" + profile.to_user)
+
+        target_profile = self.__get_user_profile(id=profile.to_user)
+        target_lang = Language(target_profile.lang)
+        print("t_lang: " + target_lang.code)
+        print("t_prof_lang: " + target_profile.lang)
+        print("t_prof_name: " + target_profile.name)
 
         if request_msg.content_type is ContentType.text:
             text = request_msg.text
@@ -98,12 +111,51 @@ class Application(object):
             self.__post_reply(line, request_msg, reply_msg)
 
             reply_msg = translator.translate(text, target_lang.code)
-            self.__post_reply(line, request_msg, reply_msg)
+            self.__post_reply(line, request_msg, reply_msg, profile.to_user)
 
-    def __post_reply(self, line, request_msg, reply_msg):
+    def __set_config(self, line, request_msg):
+        text = request_msg.text
+        command = text[1:]
+
+        user_id = request_msg.from_mid
+        dist_user = command
+        dist_profile = self.__get_user_profile(name=dist_user)
+        print("dist_user: " + dist_profile.name)
+        self.__set_dist_user(user_id, dist_profile.mid)
+
+
+    def __post_reply(self, line, request_msg, reply_msg, target=""):
         response = request_msg.reply()
         response.set_text(reply_msg)
+        if target:
+            response.to_mids = [target]
         line.post(response)
+
+    def __get_user_profile(self, id="", name=""):
+        list = self.__get_user_list()
+        if id:
+            for prof in list:
+                if prof.mid == id:
+                    return prof
+        elif name:
+            for prof in list:
+                if prof.name == name:
+                    return prof
+        else:
+            return None
+
+    def __get_user_list(self):
+        r = redis.from_url(url=os.environ.get("REDIS_URL"))
+
+        keys = r.keys()
+        list = []
+        for key in keys:
+            data = r.hgetall(key)
+            profile = self.__decode(data)
+            p = UserProfile(**profile)
+            list.append(p)
+
+        return list
 
     def __get_line_keys(self):
         channel_id = os.getenv("LINE_CHANNEL_ID")
@@ -114,7 +166,20 @@ class Application(object):
         keys = (channel_id, channel_secret, channel_mid, proxy)
         return keys
 
-    def __dict_to_str(self, data):
+    def __set_dist_user(self, src_id, dist_id):
+        r = redis.from_url(url=os.environ.get("REDIS_URL"))
+        data = r.hgetall(src_id)
+        profile = self.__decode(data)
+        logger.debug("profile: {}".format(profile))
+
+        profile = UserProfile(**profile)
+        profile.to_user = dist_id
+        dic = profile.__dict__
+        logger.debug("profile: {}".format(dic))
+
+        r.hmset(profile.mid, dic)
+
+    def __decode(self, data):
         dic = {}
         for k, v in data.items():
             key = k.decode("utf-8")
