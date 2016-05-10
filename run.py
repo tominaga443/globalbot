@@ -8,6 +8,7 @@ import pyoxford
 import urllib.request
 from urllib.parse import urlparse
 from logging import DEBUG, StreamHandler, getLogger
+from globalbot.user_profile import UserProfile
 from microsofttranslator import Translator
 from mstranslator.mstranslator import MSTranslator
 from mstranslator.language import Language
@@ -54,36 +55,41 @@ class Application(object):
                 self.__reply_message(line, request_msg)
 
     def __resist_user(self, line, request_msg):
+        translator = MSTranslator(ms_client_id, ms_client_secret)
         r = redis.from_url(os.environ.get("REDIS_URL"))
-        user_id = request_msg.from_mid
 
-        profile = line.get_user_profile(user_id)
-        reply_msg = "こんにちは、" + profile.name + "さん!"
+        user_id = request_msg.from_mid
+        contact = line.get_user_profile(user_id)
+        profile = UserProfile(contact)
+        reply_msg = "こんにちは、" + profile.name + "さん！"
         self.__post_reply(line, request_msg, reply_msg)
 
-        translator = MSTranslator(ms_client_id, ms_client_secret)
         lang = translator.detect(profile.name)
-
-
+        profile.lang = lang
         reply_msg = "あなたの言語を" + lang.name + "に設定しました"
         self.__post_reply(line, request_msg, reply_msg)
 
         reply_msg = "言語を変更するには「@reset」と発言してください。その次に発言した言語で再設定されます。"
         self.__post_reply(line, request_msg, reply_msg)
 
-        r.set(user_id, profile)
+        r.set(profile.mid, profile)
 
     def __reply_message(self, line, request_msg):
         translator = MSTranslator(ms_client_id, ms_client_secret)
+        r = redis.from_url(os.environ.get("REDIS_URL"))
+
+        user_id = request_msg.from_mid
+        profile = r.get(user_id)
+        target_lang = profile.lang
 
         if request_msg.content_type is ContentType.text:
             text = request_msg.text
 
-            lang = translator.detect(text)
-            reply_msg = "言語は" + lang.name + "です"
+            src_lang = translator.detect(text)
+            reply_msg = src_lang.name + "から" + target_lang.name + "に翻訳します"
             self.__post_reply(line, request_msg, reply_msg)
 
-            reply_msg = translator.translate(text)
+            reply_msg = translator.translate(text, target_lang.code)
             self.__post_reply(line, request_msg, reply_msg)
 
     def __post_reply(self, line, request_msg, reply_msg):

@@ -59,4 +59,4 @@ class Language(object):
         if self.code in self.NAMES:
             self.name = self.NAMES[code]
         else:
-            self.name = "Unsupported"
+            self.name = "サポート対象外"
